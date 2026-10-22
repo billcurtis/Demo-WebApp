@@ -4,7 +4,7 @@
 
 A deliberately silly, fully automated, public website on Azure App Service. Terraform provisions the infrastructure. GitHub Actions deploys it with OpenID Connect (OIDC) workload identity federation. No client secrets exist anywhere.
 
-**Live site:** _set after the first successful deployment (see [Final website address](#final-website-address))._
+**Live site:** https://bill-demo-webapp-dev-6h6ji.azurewebsites.net
 
 > [!WARNING]
 > **Basic B1 is a billable App Service plan.** It accrues charges every hour it exists, even when nobody visits the site. Run the destroy workflow when you're finished.
@@ -351,7 +351,9 @@ Don't delete or overwrite the backup branch.
 
 ## Final website address
 
-_Populated after the first successful deployment._
+**https://bill-demo-webapp-dev-6h6ji.azurewebsites.net**
+
+The hostname suffix comes from a random value stored in Terraform state, so it stays the same across deployments. It changes only if the application is destroyed and deployed again.
 
 The address is also printed at the end of `bootstrap.ps1`, shown in every deployment run summary, and available from `terraform -chdir=infra/app output -raw website_url`.
 
