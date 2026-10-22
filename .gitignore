@@ -1,0 +1,50 @@
+# Terraform state and working files
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+crash.log
+crash.*.log
+.terraform/
+*.tfplan
+tfplan
+*.plan
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# Local, deployment-specific variable files (examples are committed)
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+
+# Generated deployment archives
+*.zip
+site.zip
+dist/
+publish/
+
+# Logs
+*.log
+logs/
+
+# Editors
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+
+# Operating systems
+.DS_Store
+Thumbs.db
+desktop.ini
+ehthumbs.db
+$RECYCLE.BIN/
+
+# Local environment files
+.env
+.env.*

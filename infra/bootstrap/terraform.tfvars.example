@@ -1,0 +1,11 @@
+# Copy to terraform.tfvars (git-ignored) only if you run Terraform by hand.
+# bootstrap.ps1 passes these values on the command line instead.
+
+subscription_id   = "00000000-0000-0000-0000-000000000000"
+location          = "eastus"
+prefix            = "bill-demo-webapp"
+environment       = "dev"
+github_owner      = "billcurtis"
+github_repository = "Demo-WebApp"
+github_branch     = "main"
+state_key         = "cloud-gone-wild/dev/app.tfstate"

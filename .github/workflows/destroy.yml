@@ -1,0 +1,123 @@
+name: Destroy Cloud Gone Wild (dev)
+
+# Manual only. Never add push, pull_request, or schedule triggers to this workflow.
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: "Type DESTROY-DEV to destroy the dev application infrastructure (bootstrap resources are kept)."
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: cloud-gone-wild-dev-terraform
+  cancel-in-progress: false
+
+env:
+  TF_VERSION: "1.15.8"
+  TF_IN_AUTOMATION: "true"
+  TF_INPUT: "false"
+  TF_WORKING_DIR: infra/app
+  AZURE_REGION: eastus
+  ENVIRONMENT_NAME: dev
+  ARM_USE_OIDC: "true"
+  ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  TF_STATE_RESOURCE_GROUP: ${{ vars.TF_STATE_RESOURCE_GROUP }}
+  TF_STATE_STORAGE_ACCOUNT: ${{ vars.TF_STATE_STORAGE_ACCOUNT }}
+  TF_STATE_CONTAINER: ${{ vars.TF_STATE_CONTAINER }}
+  TF_STATE_KEY: ${{ vars.TF_STATE_KEY }}
+
+jobs:
+  destroy:
+    name: Terraform destroy (infra/app only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Check confirmation
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          if [ "${CONFIRMATION}" != "DESTROY-DEV" ]; then
+            echo "::error::Confirmation did not match. Type exactly DESTROY-DEV to proceed. Nothing was changed."
+            exit 1
+          fi
+          if [ "${GITHUB_REF}" != "refs/heads/main" ]; then
+            echo "::error::Run this workflow from the main branch. The Azure federated credential only trusts main."
+            exit 1
+          fi
+
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Verify required secrets and variables
+        run: |
+          missing=0
+          for name in ARM_CLIENT_ID ARM_TENANT_ID ARM_SUBSCRIPTION_ID TF_STATE_RESOURCE_GROUP TF_STATE_STORAGE_ACCOUNT TF_STATE_CONTAINER TF_STATE_KEY; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Missing configuration for ${name}. Run bootstrap.ps1 first."
+              missing=1
+            fi
+          done
+          exit $missing
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Terraform init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          terraform init -input=false \
+            -backend-config="resource_group_name=${TF_STATE_RESOURCE_GROUP}" \
+            -backend-config="storage_account_name=${TF_STATE_STORAGE_ACCOUNT}" \
+            -backend-config="container_name=${TF_STATE_CONTAINER}" \
+            -backend-config="key=${TF_STATE_KEY}"
+
+      - name: Terraform plan -destroy
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform plan -destroy -input=false -no-color -var="location=${AZURE_REGION}" -var="environment=${ENVIRONMENT_NAME}"
+
+      - name: Terraform destroy
+        id: destroy
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform destroy -input=false -no-color -auto-approve -var="location=${AZURE_REGION}" -var="environment=${ENVIRONMENT_NAME}"
+
+      - name: Job summary
+        if: always()
+        env:
+          JOB_STATUS: ${{ job.status }}
+          DESTROY_OUTCOME: ${{ steps.destroy.outcome }}
+        run: |
+          {
+            echo "## Cloud Gone Wild destroy (dev)"
+            echo ""
+            echo "| Item | Value |"
+            echo "| --- | --- |"
+            echo "| Result | ${JOB_STATUS} |"
+            echo "| terraform destroy | ${DESTROY_OUTCOME:-not run} |"
+            echo "| Azure region | ${AZURE_REGION} |"
+            echo "| Environment | ${ENVIRONMENT_NAME} |"
+            echo ""
+            echo "Only resources managed by \`infra/app\` were targeted."
+            echo "Retained: Terraform state resource group, storage account, and container; Entra application, service principal, and federated credential; GitHub secrets and variables."
+            echo "Removing the bootstrap resources is a separate manual process (see README)."
+          } >> "$GITHUB_STEP_SUMMARY"

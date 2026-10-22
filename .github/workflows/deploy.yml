@@ -1,0 +1,163 @@
+name: Deploy Cloud Gone Wild
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+# Shared with destroy.yml so two runs never touch the same state at once.
+concurrency:
+  group: cloud-gone-wild-dev-terraform
+  cancel-in-progress: false
+
+env:
+  TF_VERSION: "1.15.8"
+  TF_IN_AUTOMATION: "true"
+  TF_INPUT: "false"
+  TF_WORKING_DIR: infra/app
+  AZURE_REGION: eastus
+  ENVIRONMENT_NAME: dev
+  ARM_USE_OIDC: "true"
+  ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  TF_STATE_RESOURCE_GROUP: ${{ vars.TF_STATE_RESOURCE_GROUP }}
+  TF_STATE_STORAGE_ACCOUNT: ${{ vars.TF_STATE_STORAGE_ACCOUNT }}
+  TF_STATE_CONTAINER: ${{ vars.TF_STATE_CONTAINER }}
+  TF_STATE_KEY: ${{ vars.TF_STATE_KEY }}
+
+jobs:
+  deploy:
+    name: Terraform apply and publish site
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Verify required secrets and variables
+        run: |
+          missing=0
+          for name in ARM_CLIENT_ID ARM_TENANT_ID ARM_SUBSCRIPTION_ID TF_STATE_RESOURCE_GROUP TF_STATE_STORAGE_ACCOUNT TF_STATE_CONTAINER TF_STATE_KEY; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Missing configuration for ${name}. Run bootstrap.ps1 to set the AZURE_* secrets and TF_STATE_* repository variables."
+              missing=1
+            fi
+          done
+          exit $missing
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Terraform format check
+        run: terraform fmt -check -recursive -diff infra
+
+      - name: Terraform init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          terraform init -input=false \
+            -backend-config="resource_group_name=${TF_STATE_RESOURCE_GROUP}" \
+            -backend-config="storage_account_name=${TF_STATE_STORAGE_ACCOUNT}" \
+            -backend-config="container_name=${TF_STATE_CONTAINER}" \
+            -backend-config="key=${TF_STATE_KEY}"
+
+      - name: Terraform validate
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform validate -no-color
+
+      - name: Terraform plan
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform plan -input=false -no-color -out=tfplan -var="location=${AZURE_REGION}" -var="environment=${ENVIRONMENT_NAME}"
+
+      - name: Terraform apply
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform apply -input=false -no-color -auto-approve tfplan
+
+      - name: Read Terraform outputs
+        id: tf
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          for name in website_name website_hostname website_url resource_group_name app_service_plan_name log_analytics_workspace_name application_insights_name; do
+            value="$(terraform output -raw "$name")"
+            if [ -z "$value" ]; then
+              echo "::error::Terraform output '$name' is empty."
+              exit 1
+            fi
+            echo "${name}=${value}" >> "$GITHUB_OUTPUT"
+          done
+
+      - name: Package site
+        run: |
+          test -f site/index.html || { echo "::error::site/index.html is missing."; exit 1; }
+          (cd site && zip -r -q "${RUNNER_TEMP}/site.zip" .)
+          unzip -l "${RUNNER_TEMP}/site.zip"
+          unzip -l "${RUNNER_TEMP}/site.zip" | grep -qE '[[:space:]]index\.html$' || { echo "::error::index.html is not at the root of the package."; exit 1; }
+
+      - name: Deploy site to App Service
+        run: |
+          az webapp deploy \
+            --resource-group "${{ steps.tf.outputs.resource_group_name }}" \
+            --name "${{ steps.tf.outputs.website_name }}" \
+            --src-path "${RUNNER_TEMP}/site.zip" \
+            --type zip \
+            --clean true \
+            --restart true \
+            --only-show-errors
+
+      - name: Test public endpoint
+        id: test
+        shell: pwsh
+        run: ./scripts/Test-Deployment.ps1 -Url "${{ steps.tf.outputs.website_url }}"
+
+      - name: Job summary
+        if: always()
+        env:
+          JOB_STATUS: ${{ job.status }}
+          TEST_OUTCOME: ${{ steps.test.outcome }}
+          WEBSITE_URL: ${{ steps.tf.outputs.website_url }}
+          WEBSITE_NAME: ${{ steps.tf.outputs.website_name }}
+          WEBSITE_HOSTNAME: ${{ steps.tf.outputs.website_hostname }}
+          APP_RG: ${{ steps.tf.outputs.resource_group_name }}
+          PLAN_NAME: ${{ steps.tf.outputs.app_service_plan_name }}
+          LAW_NAME: ${{ steps.tf.outputs.log_analytics_workspace_name }}
+          APPI_NAME: ${{ steps.tf.outputs.application_insights_name }}
+        run: |
+          {
+            echo "## Cloud Gone Wild deployment"
+            echo ""
+            echo "| Item | Value |"
+            echo "| --- | --- |"
+            echo "| Deployment result | ${JOB_STATUS} |"
+            echo "| Azure region | ${AZURE_REGION} |"
+            echo "| Environment | ${ENVIRONMENT_NAME} |"
+            echo "| Resource group | ${APP_RG:-n/a} |"
+            echo "| App Service plan | ${PLAN_NAME:-n/a} |"
+            echo "| Web app | ${WEBSITE_NAME:-n/a} |"
+            echo "| Hostname | ${WEBSITE_HOSTNAME:-n/a} |"
+            echo "| Log Analytics workspace | ${LAW_NAME:-n/a} |"
+            echo "| Application Insights | ${APPI_NAME:-n/a} |"
+            echo "| Endpoint test | ${TEST_OUTCOME:-not run} |"
+            echo ""
+            if [ -n "${WEBSITE_URL}" ]; then
+              echo "**Public website:** ${WEBSITE_URL}"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

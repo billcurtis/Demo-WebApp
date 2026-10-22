@@ -1,0 +1,9 @@
+# Optional overrides. Copy to terraform.tfvars (git-ignored) for local runs.
+# The GitHub Actions workflow uses the defaults in variables.tf.
+
+location           = "eastus"
+prefix             = "bill-demo-webapp"
+environment        = "dev"
+repository         = "billcurtis/Demo-WebApp"
+app_service_sku    = "B1"
+log_retention_days = 30

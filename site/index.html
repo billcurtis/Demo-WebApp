@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Cloud Gone Wild: a celebration of yet another website deployed to the cloud.">
+  <meta name="color-scheme" content="dark">
+  <title>Cloud Gone Wild</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath fill='%23bfe3ff' d='M18 48a12 12 0 0 1 0-24 16 16 0 0 1 30 4 10 10 0 0 1-2 20z'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+
+  <!-- Decorative sky: hidden from assistive technology -->
+  <div class="sky" aria-hidden="true">
+    <svg class="cloud cloud--1" viewBox="0 0 200 100"><use href="#cloud-shape"/></svg>
+    <svg class="cloud cloud--2" viewBox="0 0 200 100"><use href="#cloud-shape"/></svg>
+    <svg class="cloud cloud--3" viewBox="0 0 200 100"><use href="#cloud-shape"/></svg>
+    <svg class="cloud cloud--4" viewBox="0 0 200 100"><use href="#cloud-shape"/></svg>
+    <svg class="cloud cloud--5" viewBox="0 0 200 100"><use href="#cloud-shape"/></svg>
+
+    <svg class="floater floater--db" viewBox="0 0 64 64">
+      <ellipse cx="32" cy="14" rx="20" ry="7" fill="#7cc4ff"/>
+      <path d="M12 14v36c0 4 9 7 20 7s20-3 20-7V14c0 4-9 7-20 7s-20-3-20-7z" fill="#3a8fd9"/>
+      <path d="M12 26c0 4 9 7 20 7s20-3 20-7M12 38c0 4 9 7 20 7s20-3 20-7" fill="none" stroke="#bfe3ff" stroke-width="2"/>
+    </svg>
+    <svg class="floater floater--gear" viewBox="0 0 64 64">
+      <path fill="#ffd166" d="M28 4h8l1 7 5 2 6-4 6 6-4 6 2 5 7 1v8l-7 1-2 5 4 6-6 6-6-4-5 2-1 7h-8l-1-7-5-2-6 4-6-6 4-6-2-5-7-1v-8l7-1 2-5-4-6 6-6 6 4 5-2z"/>
+      <circle cx="32" cy="32" r="9" fill="#14213d"/>
+    </svg>
+    <svg class="floater floater--bolt" viewBox="0 0 64 64">
+      <path fill="#ff9f1c" d="M36 4 12 36h16l-4 24 26-34H34z"/>
+    </svg>
+    <svg class="floater floater--net" viewBox="0 0 64 64">
+      <g stroke="#9be7c4" stroke-width="3" fill="none"><path d="M16 16 48 16 32 48z"/></g>
+      <circle cx="16" cy="16" r="7" fill="#2ec4b6"/><circle cx="48" cy="16" r="7" fill="#2ec4b6"/><circle cx="32" cy="48" r="7" fill="#2ec4b6"/>
+    </svg>
+
+    <svg width="0" height="0" style="position:absolute">
+      <defs>
+        <linearGradient id="cloud-fill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#ffffff"/>
+          <stop offset="1" stop-color="#cfe6ff"/>
+        </linearGradient>
+        <symbol id="cloud-shape" viewBox="0 0 200 100">
+          <path fill="url(#cloud-fill)" d="M50 90a35 35 0 0 1-4-70 45 45 0 0 1 84-8 32 32 0 0 1 44 30 24 24 0 0 1-4 48z"/>
+        </symbol>
+      </defs>
+    </svg>
+  </div>
+
+  <header class="site-header">
+    <p class="brand">
+      <svg class="brand__icon" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+        <path fill="#bfe3ff" d="M18 48a12 12 0 0 1 0-24 16 16 0 0 1 30 4 10 10 0 0 1-2 20z"/>
+        <path fill="#ff9f1c" d="M34 30 26 42h6l-2 10 10-14h-6z"/>
+      </svg>
+      <span>Cloud Gone Wild</span>
+    </p>
+  </header>
+
+  <main id="main" tabindex="-1">
+    <section class="hero" aria-labelledby="headline">
+      <p class="eyebrow">Production-ish environment</p>
+      <h1 id="headline">Congratulations. You deployed another website nobody asked for.</h1>
+      <p class="lede">It is highly available, fully automated, and serving an audience of approximately you.</p>
+
+      <div class="actions">
+        <button type="button" id="chaos-button" class="btn" aria-describedby="chaos-hint">
+          Deploy more cloud
+        </button>
+        <p id="chaos-hint" class="hint">Harmless. Probably. It only adds clouds and jokes.</p>
+      </div>
+
+      <p id="joke" class="joke" role="status" aria-live="polite" aria-atomic="true">
+        Press the button for an enterprise-grade cloud joke.
+      </p>
+    </section>
+
+    <section class="dashboard" aria-label="Totally real operational dashboard">
+      <article class="panel" aria-labelledby="uptime-title">
+        <h2 id="uptime-title">Uptime</h2>
+        <p class="uptime">
+          <span id="uptime-value" class="uptime__value">99.9999999%</span>
+        </p>
+        <p class="panel__note">
+          Up for <span id="uptime-duration">0 seconds</span> and
+          <span id="uptime-nines">9</span> nines. Our service level agreement is legally a poem.
+        </p>
+      </article>
+
+      <article class="panel" aria-labelledby="status-title">
+        <h2 id="status-title">Deployment status</h2>
+        <ol class="steps" id="deploy-steps">
+          <li class="step step--done"><span class="step__dot" aria-hidden="true"></span>Wrote YAML <span class="visually-hidden">(complete)</span></li>
+          <li class="step step--done"><span class="step__dot" aria-hidden="true"></span>Fixed YAML indentation <span class="visually-hidden">(complete)</span></li>
+          <li class="step step--done"><span class="step__dot" aria-hidden="true"></span>Terraform plan: 0 surprises <span class="visually-hidden">(complete)</span></li>
+          <li class="step step--done"><span class="step__dot" aria-hidden="true"></span>Shipped to the cloud <span class="visually-hidden">(complete)</span></li>
+          <li class="step step--busy"><span class="step__dot" aria-hidden="true"></span>Explaining it to finance <span class="visually-hidden">(in progress)</span></li>
+        </ol>
+      </article>
+
+      <article class="panel" aria-labelledby="health-title">
+        <h2 id="health-title">Cloud health</h2>
+        <div class="health">
+          <span class="health__orb" aria-hidden="true"></span>
+          <p><strong id="health-label">Fluffy</strong><br>
+            <span id="health-detail" class="panel__note">All clouds are white and puffy. No grey ones detected.</span>
+          </p>
+        </div>
+        <div class="rack" aria-hidden="true">
+          <div class="rack__unit"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="rack__unit"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="rack__unit"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="rack__unit"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>Deployed with Terraform, GitHub Actions, and Azure App Service. No servers were harmed. Several were mildly inconvenienced.</p>
+  </footer>
+
+  <script src="script.js" defer></script>
+</body>
+</html>
