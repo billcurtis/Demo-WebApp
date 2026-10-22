@@ -46,7 +46,7 @@ flowchart LR
 
     subgraph entra["Microsoft Entra ID"]
         app["App registration +<br/>service principal"]
-        fic["Federated credential<br/>repo:billcurtis/Demo-WebApp:ref:refs/heads/main"]
+        fic["Federated credential<br/>repo:billcurtis@7672827/Demo-WebApp@1430058167:ref:refs/heads/main"]
     end
 
     subgraph boot["Bootstrap RG: bill-demo-webapp-dev-tfstate-rg"]
@@ -170,7 +170,7 @@ The script never prints tokens.
    - Storage account `billdemowebapptf<suffix>` with ZRS, TLS 1.2, HTTPS only, shared keys disabled, public blob access disabled, versioning, and 30-day blob and container soft delete
    - Private container `tfstate` and a `CanNotDelete` lock on the account
    - Entra application `bill-demo-webapp-dev-github-actions` and its service principal
-   - Federated credential with subject `repo:billcurtis/Demo-WebApp:ref:refs/heads/main`
+   - Federated credential whose subject matches the exact `sub` claim GitHub issues for `main` (read from the repository's OIDC settings, see [How GitHub Actions authenticates](#how-github-actions-authenticates))
    - Custom role `bill-demo-webapp-dev-github-deployer` and the role assignments described in [Security notes](#security-notes)
 9. Sets the GitHub Actions secrets and variables:
 
@@ -194,7 +194,7 @@ Rerunning the script is safe. Terraform makes no changes if nothing drifted, the
 ## How GitHub Actions authenticates
 
 1. The workflow has `permissions: id-token: write`, so GitHub can mint a short-lived OIDC token for the run.
-2. The token's subject for a push or manual run on `main` is `repo:billcurtis/Demo-WebApp:ref:refs/heads/main`.
+2. The token's subject for a push or manual run on `main` is `repo:billcurtis@7672827/Demo-WebApp@1430058167:ref:refs/heads/main`. GitHub uses immutable owner and repository IDs in the subject for this repository, so the trust survives renames and can't be claimed by a new repository that reuses the name. `bootstrap.ps1` reads the prefix with `gh api repos/billcurtis/Demo-WebApp/actions/oidc/customization/sub` and passes it to Terraform, falling back to the legacy `repo:owner/name` form if GitHub doesn't return one.
 3. `azure/login` and the Terraform AzureRM provider (`ARM_USE_OIDC=true`) exchange that token with Microsoft Entra ID. Entra accepts it only because the federated credential trusts exactly that issuer, audience, and subject.
 4. Entra returns an access token for the service principal. No client secret is created or stored.
 
@@ -292,7 +292,7 @@ Running the destroy workflow removes the B1 plan and monitoring resources. The s
 
 ## Security notes
 
-- **No client secrets.** GitHub Actions uses OIDC federation. The federated credential trusts only `repo:billcurtis/Demo-WebApp:ref:refs/heads/main`.
+- **No client secrets.** GitHub Actions uses OIDC federation. The federated credential trusts only `main` of this exact repository, identified by immutable IDs (`repo:billcurtis@7672827/Demo-WebApp@1430058167:ref:refs/heads/main`).
 - **No storage keys.** The state account has shared-key access disabled and `default_to_oauth_authentication` enabled. All access uses Entra ID.
 - **Least privilege.**
   - The GitHub identity has a custom subscription-scope role limited to resource groups, `Microsoft.Web`, `Microsoft.OperationalInsights`, `Microsoft.Insights`, and `Microsoft.AlertsManagement`. It has **no** `Microsoft.Authorization` rights, so it can't grant itself or anyone else access.
@@ -309,7 +309,7 @@ Running the destroy workflow removes the B1 plan and monitoring resources. The s
 
 | Symptom | Likely cause and fix |
 | --- | --- |
-| `AADSTS700213` or `AADSTS70021: No matching federated identity record found` | The workflow ran from a branch other than `main`, or the repository was renamed. Run from `main`, or update `github_branch` / `github_repository` and rerun `bootstrap.ps1`. |
+| `AADSTS700213` or `AADSTS70021: No matching federated identity record found` | The presented subject (shown in the error) doesn't match the federated credential. Usually the run wasn't on `main`, or the repository's OIDC subject format changed. Run from `main`, or rerun `bootstrap.ps1` so it re-reads the subject prefix. |
 | `AuthorizationFailed` during `terraform plan` or `apply` right after bootstrap | New role assignments can take several minutes to propagate. Re-run the workflow. |
 | `403 AuthorizationPermissionMismatch` during `terraform init` | The identity lacks `Storage Blob Data Contributor` on the container, or the assignment hasn't propagated. Wait and retry; confirm with `az role assignment list --scope <container-id>`. |
 | `Missing configuration for ...` in the first workflow step | Secrets or variables aren't set. Rerun `bootstrap.ps1`. |

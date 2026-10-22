@@ -300,6 +300,11 @@ foreach ($ns in 'Microsoft.Storage', 'Microsoft.Web', 'Microsoft.OperationalInsi
 
 Write-Step 'Applying infra/bootstrap'
 
+# The federated credential must match the exact sub claim GitHub issues for this repository.
+$subPrefix = Invoke-Native gh @('api', "repos/$Repository/actions/oidc/customization/sub", '--jq', '.sub_claim_prefix') -AllowFailure
+if (-not $subPrefix -or -not $subPrefix.StartsWith('repo:')) { $subPrefix = "repo:$Repository" }
+Write-Ok "GitHub OIDC subject prefix: $subPrefix"
+
 $bootstrapVars = @(
     "-var=subscription_id=$SubscriptionId",
     "-var=location=$Location",
@@ -308,6 +313,7 @@ $bootstrapVars = @(
     "-var=github_owner=$($Repository.Split('/')[0])",
     "-var=github_repository=$($Repository.Split('/')[1])",
     "-var=github_branch=$DefaultBranch",
+    "-var=github_oidc_subject_prefix=$subPrefix",
     "-var=state_key=$StateKey"
 )
 & terraform "-chdir=$BootstrapDir" init -input=false
@@ -335,7 +341,7 @@ foreach ($k in $bootstrap.Keys) {
 if ($bootstrap.AZURE_SUBSCRIPTION_ID -ne $SubscriptionId -or $bootstrap.AZURE_TENANT_ID -ne $TenantId) {
     Stop-Bootstrap 'Bootstrap outputs do not match the active subscription/tenant. Refusing to configure GitHub.'
 }
-$expectedSubject = "repo:${Repository}:ref:refs/heads/$DefaultBranch"
+$expectedSubject = "${subPrefix}:ref:refs/heads/$DefaultBranch"
 if ($out.github_federated_credential_subject.value -ne $expectedSubject) {
     Stop-Bootstrap "Federated credential subject '$($out.github_federated_credential_subject.value)' does not match '$expectedSubject'."
 }

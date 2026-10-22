@@ -44,6 +44,17 @@ variable "github_branch" {
   default     = "main"
 }
 
+variable "github_oidc_subject_prefix" {
+  description = "Repository sub-claim prefix from GET /repos/{owner}/{repo}/actions/oidc/customization/sub, e.g. repo:owner@123/name@456. Empty uses the legacy repo:owner/name form."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.github_oidc_subject_prefix == "" || startswith(var.github_oidc_subject_prefix, "repo:")
+    error_message = "github_oidc_subject_prefix must start with 'repo:'."
+  }
+}
+
 variable "state_key" {
   description = "Blob name for the application Terraform state."
   type        = string

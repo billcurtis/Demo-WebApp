@@ -9,3 +9,6 @@ github_owner      = "billcurtis"
 github_repository = "Demo-WebApp"
 github_branch     = "main"
 state_key         = "cloud-gone-wild/dev/app.tfstate"
+
+# From: gh api repos/billcurtis/Demo-WebApp/actions/oidc/customization/sub --jq .sub_claim_prefix
+github_oidc_subject_prefix = "repo:billcurtis@7672827/Demo-WebApp@1430058167"

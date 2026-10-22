@@ -18,8 +18,9 @@ locals {
   # Storage account names: 3-24 chars, lowercase letters and digits only.
   state_storage_account_name = substr("${replace(var.prefix, "/[^a-z0-9]/", "")}tf${random_string.suffix.result}", 0, 24)
 
-  github_oidc_issuer  = "https://token.actions.githubusercontent.com"
-  github_oidc_subject = "repo:${local.repository}:ref:refs/heads/${var.github_branch}"
+  github_oidc_issuer = "https://token.actions.githubusercontent.com"
+  # GitHub may issue immutable-ID subjects (repo:owner@<id>/name@<id>), which also survive renames.
+  github_oidc_subject = "${coalesce(var.github_oidc_subject_prefix, "repo:${local.repository}")}:ref:refs/heads/${var.github_branch}"
 
   tags = {
     environment = var.environment
